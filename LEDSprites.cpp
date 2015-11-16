@@ -96,7 +96,7 @@ boolean cSprite::Combine(int16_t dx, int16_t dy, cSprite *Src)
         DSh += 8;
       }
     }
-    for (int k=Src->m_Height; k>0; --k)
+    for (int16_t k=Src->m_Height; k>0; --k)
     {
       uint8_t *dstData = DstData;
       int8_t dSh = DSh;
@@ -106,7 +106,8 @@ boolean cSprite::Combine(int16_t dx, int16_t dy, cSprite *Src)
       SrcData++;
       int8_t sSh = 16 - m_BitsPixel;
       uint8_t sMb = 0x80;
-      for (int j=0; j<Src->m_Width; ++j,sSh-=m_BitsPixel,dSh-=m_BitsPixel)
+      int16_t j;
+      for (j=0; j<Src->m_Width; ++j,sSh-=m_BitsPixel,dSh-=m_BitsPixel)
       {
         if (sSh <= (8 - m_BitsPixel))
         {
@@ -142,8 +143,19 @@ boolean cSprite::Combine(int16_t dx, int16_t dy, cSprite *Src)
       else
         DstData = &DstData[m_Width * m_BitsPixel];
       DstMask = &DstMask[(m_Width + 7) / 8];
-      if ((m_BitsPixel < 8) && ((Src->m_Width % 8) != 0))
-        SrcData += (((8 - (Src->m_Width % 8)) * m_BitsPixel) >> 3);
+      if (m_BitsPixel < 8)
+      {
+        while ((j % 8) != 0)
+        {
+          if (sSh <= (8 - m_BitsPixel))
+          {
+            ++SrcData;
+            sSh += 8;
+          }
+          sSh-=m_BitsPixel;
+          ++j;
+        }
+      }
       if (sMb != 0x80)
         SrcMask++;
     }
@@ -156,25 +168,37 @@ void cSprite::Render(cLEDMatrixBase *Matrix)
   int16_t y = m_Y + m_Height - 1;
   uint8_t *sprframedata = (uint8_t *)&(m_Data[m_Frame * m_FrameSize]);
 
-  for (uint16_t i=m_Height; i>0; --i,--y)
+  for (int16_t i=m_Height; i>0; --i,--y)
   {
     int16_t x = m_X;
     uint16_t sfd = ((*sprframedata) << 8) | *(sprframedata+1);
     sprframedata++;
-    int8_t s = 16 - m_BitsPixel;
-    for (uint16_t j=0; j<m_Width; ++j,++x,s-=m_BitsPixel)
+    int8_t sSh = 16 - m_BitsPixel;
+    int16_t j;
+    for (j=0; j<m_Width; ++j,++x,sSh-=m_BitsPixel)
     {
-      if (s <= (8 - m_BitsPixel))
+      if (sSh <= (8 - m_BitsPixel))
       {
         sfd = (sfd << 8) | *(++sprframedata);
-        s += 8;
+        sSh += 8;
       }
-      uint8_t col = (sfd >> s) & m_NumCols;
+      uint8_t col = (sfd >> sSh) & m_NumCols;
       if (col > 0)
         (*Matrix)(x, y) = m_ColTable[col - 1];
     }
-    if ((m_BitsPixel < 8) && ((m_Width % 8) != 0))
-      sprframedata += (((8 - (m_Width % 8)) * m_BitsPixel) >> 3);
+    if (m_BitsPixel < 8)
+    {
+      while ((j % 8) != 0)
+      {
+        if (sSh <= (8 - m_BitsPixel))
+        {
+          ++sprframedata;
+          sSh += 8;
+        }
+        sSh-=m_BitsPixel;
+        ++j;
+      }
+    }
   }
 }
 
