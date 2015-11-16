@@ -1,23 +1,23 @@
 /*
-LEDSprites V4 class by Aaron Liddiment (c) 2015
+LEDSprites V5 class by Aaron Liddiment (c) 2015
 
 Inspiration came from my old C64 days :)
 
 FastLED v3.1 library by Daniel Garcia and Mark Kriegsmann.
-Written & tested on a Teensy 3.1 using Arduino V1.6.3 & teensyduino V1.22
+Written & tested on a Teensy 3.1 using Arduino V1.0.5r2 & teensyduino V1.20
 */
 
-#include <FastLED.h>
-#include <LEDMatrix.h>
-#include <LEDSprites.h>
+#include "FastLED.h"
+#include "LEDMatrix.h"
+#include "LEDSprites.h"
 
-cSprite::cSprite(uint8_t Width, uint8_t Height, const uint8_t *Data, uint8_t NumFrames, SpriteNumBits_t BitsPixel, const struct CRGB *ColTable, const uint8_t *Mask)
+cSprite::cSprite(uint16_t Width, uint16_t Height, const uint8_t *Data, uint8_t NumFrames, SpriteNumBits_t BitsPixel, const struct CRGB *ColTable, const uint8_t *Mask)
 {
   if (Data)
     Setup(Width, Height, Data, NumFrames, BitsPixel, ColTable, Mask);
 }
 
-void cSprite::Setup(uint8_t Width, uint8_t Height, const uint8_t *Data, uint8_t NumFrames, SpriteNumBits_t BitsPixel, const struct CRGB *ColTable, const uint8_t *Mask)
+void cSprite::Setup(uint16_t Width, uint16_t Height, const uint8_t *Data, uint8_t NumFrames, SpriteNumBits_t BitsPixel, const struct CRGB *ColTable, const uint8_t *Mask)
 {
   m_Width = Width;
   m_Height = Height;
@@ -30,7 +30,7 @@ void cSprite::Setup(uint8_t Width, uint8_t Height, const uint8_t *Data, uint8_t 
   m_X = m_Y = 0;
   m_Frame = m_FrameRate = m_XRate = m_YRate = m_CounterFrame = m_CounterX = m_CounterY = m_Options = m_Flags = 0;
   m_XChange = m_YChange = 0;
-  m_NumCols = (1 << m_BitsPixel) - 1;
+  m_NumCols = (1 << (uint16_t)m_BitsPixel) - 1;
   m_MaskSize = ((m_Width + 7) / 8) * m_Height;
   m_FrameSize = m_MaskSize * m_BitsPixel;
 }
@@ -77,11 +77,8 @@ void cSprite::Update()
 
 boolean cSprite::Combine(int16_t dx, int16_t dy, cSprite *Src)
 {
-	// Purely added to make Tetris example! Note that the colour tables have to be the same!
-  uint32_t sfm2, sfm1, sfd2, sfd1;
-  uint8_t *dstData, *dstMask;
-
-  if (m_BitsPixel != Src->m_BitsPixel)
+  // Purely added to make Tetris example! Note that the colour tables have to be the same!
+  if ( (m_BitsPixel != Src->m_BitsPixel) || (Src->m_Mask == NULL) || (m_Mask == NULL) )
     return(false);
   else
   {
@@ -89,47 +86,66 @@ boolean cSprite::Combine(int16_t dx, int16_t dy, cSprite *Src)
     uint8_t *DstData = (uint8_t *)&(m_Data[(m_Frame * m_FrameSize) + ((dx / 8) * m_BitsPixel) + (((m_Height - Src->m_Height) - dy) * ((m_Width + 7) / 8) * m_BitsPixel)]);
     uint8_t *SrcMask = (uint8_t *)&(Src->m_Mask[Src->m_Frame * Src->m_MaskSize]);
     uint8_t *DstMask = (uint8_t *)&(m_Mask[(m_Frame * m_MaskSize) + (dx / 8) + (((m_Height - Src->m_Height) - dy) * ((m_Width + 7) / 8))]);
-    int8_t sm = dx % 8;
-    int8_t sd = sm * m_BitsPixel;
-
+    int8_t DSh = 16 - m_BitsPixel;
+    uint8_t DMb = 0x80;
+    for (int8_t spx=dx%8; spx>0; --spx,DSh-=m_BitsPixel,DMb>>=1)
+    {
+      if (DSh <= (8 - m_BitsPixel))
+      {
+        DstData++;
+        DSh += 8;
+      }
+    }
     for (int k=Src->m_Height; k>0; --k)
     {
-      dstData = DstData;
-      dstMask = DstMask;
-      for (int j=0; j<Src->m_Width; j+=8)
+      uint8_t *dstData = DstData;
+      int8_t dSh = DSh;
+      uint8_t *dstMask = DstMask;
+      uint8_t dMb = DMb;
+      uint16_t sfd = ((*SrcData) << 8) | *(SrcData+1);
+      SrcData++;
+      int8_t sSh = 16 - m_BitsPixel;
+      uint8_t sMb = 0x80;
+      for (int j=0; j<Src->m_Width; ++j,sSh-=m_BitsPixel,dSh-=m_BitsPixel)
       {
-        sfd1 = 0;
-        for (int k=m_BitsPixel; k>0; --k)
-          sfd1 = (sfd1 << 8) | *SrcData++;
-        if (sfd1 != 0)
+        if (sSh <= (8 - m_BitsPixel))
         {
-          sfd2 = sfd1 << ((m_BitsPixel * 8) - sd);
-          sfd1 >>= sd;
-          for (int i=m_BitsPixel-1; i>=0; --i)
-          {
-            dstData[i] |= (uint8_t)sfd1;
-            sfd1 >>= 8;
-            if (sfd2 != 0)
-            {
-              dstData[m_BitsPixel + i] |= (uint8_t)sfd2;
-              sfd2 >>= 8;
-            }
-          }
+          sfd = (sfd << 8) | *(++SrcData);
+          sSh += 8;
         }
-        sfm1 = *SrcMask++;
-        if (sfm1 != 0)
+        if (dSh <= (8 - m_BitsPixel))
         {
-          sfm2 = sfm1 << (8 - sm);
-          sfm1 >>= sm;
-          dstMask[0] |= (uint8_t)sfm1;
-          if (sfm2 > 0)
-            dstMask[1] |= (uint8_t)sfm2;
+          dstData++;
+          dSh += 8;
         }
-        dstData = &dstData[m_BitsPixel];
-        dstMask++;
+        if (*SrcMask & sMb)
+        {
+          uint16_t dfd = ((*dstData) << 8) | *(dstData+1);
+          dfd = (dfd & ((m_NumCols << dSh) ^ 0xffff)) | (((sfd >> sSh) & m_NumCols) << dSh);
+          *dstData = dfd >> 8;
+          *(dstData + 1) = dfd & 0xff;
+          *dstMask |= dMb;
+        }
+        if ((sMb>>=1) == 0x00)
+        {
+          sMb = 0x80;
+          SrcMask++;
+        }
+        if ((dMb>>=1) == 0x00)
+        {
+          dMb = 0x80;
+          dstMask++;
+        }
       }
-      DstData = &DstData[((m_Width + 7) / 8) * m_BitsPixel];
+      if (m_BitsPixel < 8)
+        DstData = &DstData[((m_Width + 7) / 8) * m_BitsPixel];
+      else
+        DstData = &DstData[m_Width * m_BitsPixel];
       DstMask = &DstMask[(m_Width + 7) / 8];
+      if ((m_BitsPixel < 8) && ((Src->m_Width % 8) != 0))
+        SrcData += (((8 - (Src->m_Width % 8)) * m_BitsPixel) >> 3);
+      if (sMb != 0x80)
+        SrcMask++;
     }
     return(true);
   }
@@ -139,27 +155,35 @@ void cSprite::Render(cLEDMatrixBase *Matrix)
 {
   int16_t y = m_Y + m_Height - 1;
   uint8_t *sprframedata = (uint8_t *)&(m_Data[m_Frame * m_FrameSize]);
-  for (int i=m_Height; i>0; --i,--y)
+
+  for (uint16_t i=m_Height; i>0; --i,--y)
   {
     int16_t x = m_X;
-    for (int j=0; j<m_Width; j+=8)
+    uint16_t sfd = ((*sprframedata) << 8) | *(sprframedata+1);
+    sprframedata++;
+    int8_t s = 16 - m_BitsPixel;
+    for (uint16_t j=0; j<m_Width; ++j,++x,s-=m_BitsPixel)
     {
-      uint32_t sfd = 0;
-      for (int k=m_BitsPixel; k>0; --k)
-        sfd = (sfd << 8) | *sprframedata++;
-      for (int k=min(m_Width-j, 8),sm=m_BitsPixel*7; k>0; --k,sm-=m_BitsPixel,++x)
+      if (s <= (8 - m_BitsPixel))
       {
-        uint8_t col = (sfd >> sm) & m_NumCols;
-        if (col > 0)
-          (*Matrix)(x, y) = m_ColTable[col - 1];
+        sfd = (sfd << 8) | *(++sprframedata);
+        s += 8;
       }
+      uint8_t col = (sfd >> s) & m_NumCols;
+      if (col > 0)
+        (*Matrix)(x, y) = m_ColTable[col - 1];
     }
+    if ((m_BitsPixel < 8) && ((m_Width % 8) != 0))
+      sprframedata += (((8 - (m_Width % 8)) * m_BitsPixel) >> 3);
   }
 }
 
 void cSprite::EdgeDetect(cLEDMatrixBase *Matrix)
 {
   bool onXMatrix = false, onYMatrix = false, onEdgeXMin = false, onEdgeXMax = false, onEdgeYMin = false, onEdgeYMax = false;
+
+  if (m_Mask == NULL)
+    return;
   if ((m_X + m_Width) <= 0)
     onEdgeXMin = true;
   else if (m_X >= Matrix->Width())
@@ -167,7 +191,7 @@ void cSprite::EdgeDetect(cLEDMatrixBase *Matrix)
   else
   {
     uint8_t *Mask = (uint8_t *)&m_Mask[m_Frame * m_MaskSize];
-    uint8_t XCnt = (m_Width + 7) / 8;
+    uint16_t XCnt = (m_Width + 7) / 8;
     int16_t xoff;
     if (m_X <= 0)
       xoff = max(0, 0 - m_X);
@@ -213,7 +237,7 @@ void cSprite::EdgeDetect(cLEDMatrixBase *Matrix)
   else
   {
     uint8_t *Mask = (uint8_t *)&m_Mask[m_Frame * m_MaskSize];
-    uint8_t XCnt = (m_Width + 7) / 8;
+    uint16_t XCnt = (m_Width + 7) / 8;
     for (int16_t y=(m_Y+m_Height)-1; y>=m_Y; --y)
     {
       for (uint8_t x=0; x<XCnt; ++x)
@@ -468,58 +492,61 @@ void cLEDSprites::DetectCollisions(cSprite *srcSpr)
           colSpr[1]->m_Flags &= (~SPRITE_COLLISION);  // Clear collision flag
         if ((colSpr[0]->m_Options & SPRITE_DETECT_COLLISION) || (colSpr[1]->m_Options & SPRITE_DETECT_COLLISION))
         {
-          bool chkColission = false;
-          if ( (colSpr[0]->m_X < (colSpr[1]->m_X + colSpr[1]->m_Width)) && (colSpr[1]->m_X < (colSpr[0]->m_X + colSpr[0]->m_Width))
-            && (colSpr[0]->m_Y < (colSpr[1]->m_Y + colSpr[1]->m_Height)) && (colSpr[1]->m_Y < (colSpr[0]->m_Y + colSpr[0]->m_Height)) )
+          if ( (colSpr[0]->m_Mask != NULL) && (colSpr[1]->m_Mask != NULL) )
           {
-            uint8_t *colMask[2], partX, partY, colXBit;
-            int16_t colXCnt, colYCnt;
-            uint16_t xoff, yoff;
-            if (colSpr[0]->m_X <= colSpr[1]->m_X)
-              partX = 0;
-            else
-              partX = 1;
-            if ((colSpr[partX]->m_Y + colSpr[partX]->m_Height) >= (colSpr[1 - partX]->m_Y + colSpr[1 - partX]->m_Height))
-              partY = partX;
-            else
-              partY = 1 - partX;
-            xoff = colSpr[1 - partX]->m_X - colSpr[partX]->m_X;
-            colMask[partX] = (uint8_t *)&colSpr[partX]->m_Mask[(colSpr[partX]->m_Frame * colSpr[partX]->m_MaskSize) + (xoff / 8)];
-            colMask[1 - partX] = (uint8_t *)&colSpr[1 - partX]->m_Mask[(colSpr[1 - partX]->m_Frame * colSpr[1 - partX]->m_MaskSize)];
-            colXBit = xoff % 8;
-            colXCnt = min(colSpr[partX]->m_Width - xoff, colSpr[1 - partX]->m_Width);
-            yoff = (colSpr[partY]->m_Y + colSpr[partY]->m_Height) - (colSpr[1 - partY]->m_Y + colSpr[1 - partY]->m_Height);
-            colMask[partY] = (uint8_t *)&colMask[partY][yoff * ((colSpr[partY]->m_Width + 7) / 8)];
-            colYCnt = min(colSpr[partY]->m_Height - yoff, colSpr[1 - partY]->m_Height);
-            for (; colYCnt>0; --colYCnt)
+            bool chkColission = false;
+            if ( (colSpr[0]->m_X < (colSpr[1]->m_X + colSpr[1]->m_Width)) && (colSpr[1]->m_X < (colSpr[0]->m_X + colSpr[0]->m_Width))
+              && (colSpr[0]->m_Y < (colSpr[1]->m_Y + colSpr[1]->m_Height)) && (colSpr[1]->m_Y < (colSpr[0]->m_Y + colSpr[0]->m_Height)) )
             {
-              uint8_t x = 0;
-              int16_t tmpXCnt = colXCnt;
-              do
+              uint8_t *colMask[2], partX, partY, colXBit;
+              int16_t colXCnt, colYCnt;
+              uint16_t xoff, yoff;
+              if (colSpr[0]->m_X <= colSpr[1]->m_X)
+                partX = 0;
+              else
+                partX = 1;
+              if ((colSpr[partX]->m_Y + colSpr[partX]->m_Height) >= (colSpr[1 - partX]->m_Y + colSpr[1 - partX]->m_Height))
+                partY = partX;
+              else
+                partY = 1 - partX;
+              xoff = colSpr[1 - partX]->m_X - colSpr[partX]->m_X;
+              colMask[partX] = (uint8_t *)&colSpr[partX]->m_Mask[(colSpr[partX]->m_Frame * colSpr[partX]->m_MaskSize) + (xoff / 8)];
+              colMask[1 - partX] = (uint8_t *)&colSpr[1 - partX]->m_Mask[(colSpr[1 - partX]->m_Frame * colSpr[1 - partX]->m_MaskSize)];
+              colXBit = xoff % 8;
+              colXCnt = min(colSpr[partX]->m_Width - xoff, colSpr[1 - partX]->m_Width);
+              yoff = (colSpr[partY]->m_Y + colSpr[partY]->m_Height) - (colSpr[1 - partY]->m_Y + colSpr[1 - partY]->m_Height);
+              colMask[partY] = (uint8_t *)&colMask[partY][yoff * ((colSpr[partY]->m_Width + 7) / 8)];
+              colYCnt = min(colSpr[partY]->m_Height - yoff, colSpr[1 - partY]->m_Height);
+              for (; colYCnt>0; --colYCnt)
               {
-                uint8_t colAData = colMask[partX][x] << colXBit;
-                if ((8 - colXBit) < colXCnt)
-                  colAData |= colMask[partX][x + 1] >> (8 - colXBit);
-                if ((colAData & colMask[1 - partX][x]) != 0x00)
+                uint8_t x = 0;
+                int16_t tmpXCnt = colXCnt;
+                do
                 {
-                  chkColission = true;
-                  break;
+                  uint8_t colAData = colMask[partX][x] << colXBit;
+                  if ((8 - colXBit) < colXCnt)
+                    colAData |= colMask[partX][x + 1] >> (8 - colXBit);
+                  if ((colAData & colMask[1 - partX][x]) != 0x00)
+                  {
+                    chkColission = true;
+                    break;
+                  }
+                  ++x;
+                  colXCnt -= 8;
                 }
-                ++x;
-                colXCnt -= 8;
+                while (colXCnt > 0);
+                if (chkColission)
+                  break;
+                colXCnt = tmpXCnt;
+                colMask[0] = (uint8_t *)&colMask[0][(colSpr[0]->m_Width + 7) / 8];
+                colMask[1] = (uint8_t *)&colMask[1][(colSpr[1]->m_Width + 7) / 8];
               }
-              while (colXCnt > 0);
-              if (chkColission)
-                break;
-              colXCnt = tmpXCnt;
-              colMask[0] = (uint8_t *)&colMask[0][(colSpr[0]->m_Width + 7) / 8];
-              colMask[1] = (uint8_t *)&colMask[1][(colSpr[1]->m_Width + 7) / 8];
             }
-          }
-          if (chkColission)
-          {
-            colSpr[0]->m_Flags |= SPRITE_COLLISION;
-            colSpr[1]->m_Flags |= SPRITE_COLLISION;
+            if (chkColission)
+            {
+              colSpr[0]->m_Flags |= SPRITE_COLLISION;
+              colSpr[1]->m_Flags |= SPRITE_COLLISION;
+            }
           }
         }
         colSpr[1] = colSpr[1]->m_NextSprite;

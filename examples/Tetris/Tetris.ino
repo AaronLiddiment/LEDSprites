@@ -383,7 +383,7 @@ cLEDText TetrisMsg;
 uint8_t DropDelay;
 boolean AttractMode, NextBlock;
 int16_t TotalLines;
-uint32_t HighScore = 0, LastScore;
+unsigned int HighScore = 0, LastScore;
 
 uint16_t PlasmaTime, PlasmaShift;
 uint32_t LoopDelayMS, LastLoop;
@@ -473,8 +473,8 @@ void setup()
   CompletedLines.SetPositionFrameMotionOptions(0, 0, 0, 0, 0, 0, 0, 0, 0);
 
   TetrisMsg.SetFont(MatriseFontData);
-  sprintf((char *)BlankMsg, "%.*s", min(((leds.Height() + TetrisMsg.FontHeight()) / (TetrisMsg.FontHeight() + 1)), sizeof(BlankMsg) - 1), "                              ");
-  sprintf((char *)AttractMsg, "%sTETRIS%sSCORE %d%sHIGH %d%sANY BUTTON TO START%s", BlankMsg, BlankMsg, LastScore, BlankMsg, HighScore, BlankMsg, BlankMsg);
+  sprintf((char *)BlankMsg, "%.*s", min(((leds.Height() + TetrisMsg.FontHeight()) / (TetrisMsg.FontHeight() + 1)), (int)sizeof(BlankMsg) - 1), "                              ");
+  sprintf((char *)AttractMsg, "%sTETRIS%sSCORE %u%sHIGH %u%sANY BUTTON TO START%s", BlankMsg, BlankMsg, LastScore, BlankMsg, (int)HighScore, BlankMsg, BlankMsg);
   TetrisMsg.Init(&leds, TetrisMsg.FontWidth() + 1, leds.Height(), (leds.Width() - TetrisMsg.FontWidth()) / 2, 0);
   TetrisMsg.SetBackgroundMode(BACKGND_LEAVE);
   TetrisMsg.SetScrollDirection(SCROLL_UP);
@@ -639,11 +639,11 @@ void loop()
                   if (LastScore > HighScore)
                   {
                     HighScore = LastScore;
-                    sprintf((char *)GameOverMsg, "%sGAME OVER%sNEW HIGH SCORE %d%s", BlankMsg, BlankMsg, LastScore, BlankMsg);
+                    sprintf((char *)GameOverMsg, "%sGAME OVER%sNEW HIGH SCORE %u%s", BlankMsg, BlankMsg, LastScore, BlankMsg);
                   }
                   else
-                    sprintf((char *)GameOverMsg, "%sGAME OVER%sSCORE %d%s", BlankMsg, BlankMsg, LastScore, BlankMsg);
-                  sprintf((char *)AttractMsg, "%sTETRIS%sSCORE %d%sHIGH %d%sANY BUTTON TO START%s", BlankMsg, BlankMsg, LastScore, BlankMsg, HighScore, BlankMsg, BlankMsg);
+                    sprintf((char *)GameOverMsg, "%sGAME OVER%sSCORE %u%s", BlankMsg, BlankMsg, LastScore, BlankMsg);
+                  sprintf((char *)AttractMsg, "%sTETRIS%sSCORE %u%sHIGH %u%sANY BUTTON TO START%s", BlankMsg, BlankMsg, LastScore, BlankMsg, HighScore, BlankMsg, BlankMsg);
                   TetrisMsg.SetText(GameOverMsg, strlen((char *)GameOverMsg));
                   TetrisMsg.SetBackgroundMode(BACKGND_DIMMING, 0x40);
                 }

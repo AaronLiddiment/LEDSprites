@@ -1,30 +1,35 @@
 #ifndef LEDSprites_h
 #define LEDSprites_h
 
-#ifndef HEX__(n)
-  #define HEX__(n) 0x##n##LU
-#endif
 #define B8_1B__(x) (uint8_t)(((x&0x10000000LU)>>21)+((x&0x01000000LU)>>18)+((x&0x00100000LU)>>15)+((x&0x00010000LU)>>12)+ \
-                    ((x&0x00001000LU)>>9)+((x&0x00000100LU)>>6)+((x&0x00000010LU)>>3)+((x&0x00000001LU)))
+                   ((x&0x00001000LU)>>9)+((x&0x00000100LU)>>6)+((x&0x00000010LU)>>3)+((x&0x00000001LU)))
 #define B8_2B__(x) (uint8_t)(((x&0x30000000LU)>>22)+((x&0x03000000LU)>>20)+((x&0x00300000LU)>>18)+((x&0x00030000LU)>>16)), \
-                    (uint8_t)(((x&0x00003000LU)>>6)+((x&0x00000300LU)>>4)+((x&0x00000030LU)>>2)+((x&0x00000003LU)))
+                   (uint8_t)(((x&0x00003000LU)>>6)+((x&0x00000300LU)>>4)+((x&0x00000030LU)>>2)+((x&0x00000003LU)))
 #define B8_3B__(x) (uint8_t)(((x&0x70000000LU)>>23)+((x&0x07000000LU)>>22)+((x&0x00700000LU)>>21)), \
-                    (uint8_t)(((x&0x00700000LU)>>13)+((x&0x00070000LU)>>12)+((x&0x00007000LU)>>11)+((x&0x00000700LU)>>10)), \
-                    (uint8_t)(((x&0x00000700LU)>>2)+((x&0x00000070LU)>>1)+((x&0x00000007LU)))
+                   (uint8_t)(((x&0x00700000LU)>>13)+((x&0x00070000LU)>>12)+((x&0x00007000LU)>>11)+((x&0x00000700LU)>>10)), \
+                   (uint8_t)(((x&0x00000700LU)>>2)+((x&0x00000070LU)>>1)+((x&0x00000007LU)))
 #define B8_4B__(x) (uint8_t)(((x&0xf0000000LU)>>24)+((x&0x0f000000LU)>>24)), \
-                    (uint8_t)(((x&0x00f00000LU)>>16)+((x&0x000f0000LU)>>16)), \
-                    (uint8_t)(((x&0x0000f000LU)>>8)+((x&0x00000f00LU)>>8)), \
-                    (uint8_t)((x&0x000000f0LU)+(x&0x0000000fLU))
+                   (uint8_t)(((x&0x00f00000LU)>>16)+((x&0x000f0000LU)>>16)), \
+                   (uint8_t)(((x&0x0000f000LU)>>8)+((x&0x00000f00LU)>>8)), \
+                   (uint8_t)((x&0x000000f0LU)+(x&0x0000000fLU))
+#define B8_5B__(x) (uint8_t)(((x[0]>'9'?(x[0]-'A')+10:x[0]-'0')<<3)+(((x[1]>'9'?(x[1]-'A')+10:x[1]-'0')>>2)&0x07)), \
+                   (uint8_t)(((x[1]>'9'?(x[1]-'A')+10:x[1]-'0')<<6)+((x[2]>'9'?(x[2]-'A')+10:x[2]-'0')<<1)+(((x[3]>'9'?(x[3]-'A')+10:x[3]-'0')>>4)&0x01)), \
+                   (uint8_t)(((x[3]>'9'?(x[3]-'A')+10:x[3]-'0')<<4)+((x[4]>'9'?(x[4]-'A')+10:x[4]-'0')>>1)), \
+                   (uint8_t)(((x[4]>'9'?(x[4]-'A')+10:x[4]-'0')<<7)+((x[5]>'9'?(x[5]-'A')+10:x[5]-'0')<<2)+(((x[6]>'9'?(x[6]-'A')+10:x[6]-'0')>>3)&0x03)), \
+                   (uint8_t)(((x[6]>'9'?(x[6]-'A')+10:x[6]-'0')<<5)+(x[7]>'9'?(x[7]-'A')+10:x[7]-'0'))
 
-#define B8_1BIT(d)  B8_1B__(HEX__(d))
-#define B8_2BIT(d)  B8_2B__(HEX__(d))
-#define B8_3BIT(d)  B8_3B__(HEX__(d))
-#define B8_4BIT(d)  B8_4B__(HEX__(d))
+#define B8_1BIT(d)  B8_1B__(0x##d##LU)
+#define B8_2BIT(d)  B8_2B__(0x##d##LU)
+#define B8_3BIT(d)  B8_3B__(0x##d##LU)
+#define B8_4BIT(d)  B8_4B__(0x##d##LU)
+#define B8_5BIT(d)  B8_5B__(#d)
 
 enum SpriteNumBits_t { _1BIT=1,
                        _2BIT=2,
                        _3BIT=3,
-                       _4BIT=4 };
+                       _4BIT=4,
+                       _5BIT=5,
+                       _8BIT=8 };
 
 enum SpritePriority_t { SPR_FRONT,
                         SPR_BACK,
@@ -53,8 +58,8 @@ class cSprite
 {
   friend class cLEDSprites;
   public:
-    cSprite(uint8_t Width = 0, uint8_t Height = 0, const uint8_t *Data = NULL, uint8_t NumFrames = 0, SpriteNumBits_t BitsPixel = _1BIT, const struct CRGB *ColTable = NULL, const uint8_t *Mask = NULL);
-    void Setup(uint8_t Width, uint8_t Height, const uint8_t *Data, uint8_t NumFrames, SpriteNumBits_t BitsPixel, const struct CRGB *ColTable, const uint8_t *Mask = NULL);
+    cSprite(uint16_t Width = 0, uint16_t Height = 0, const uint8_t *Data = NULL, uint8_t NumFrames = 0, SpriteNumBits_t BitsPixel = _1BIT, const struct CRGB *ColTable = NULL, const uint8_t *Mask = NULL);
+    void Setup(uint16_t Width, uint16_t Height, const uint8_t *Data, uint8_t NumFrames, SpriteNumBits_t BitsPixel, const struct CRGB *ColTable, const uint8_t *Mask = NULL);
     void Update();
     boolean Combine(int16_t dx, int16_t dy, cSprite *Src);
     void Render(cLEDMatrixBase *Matrix);
@@ -83,7 +88,8 @@ class cSprite
     int8_t m_XChange, m_YChange;
     cSprite *m_PrevSprite, *m_NextSprite;
   protected:
-    uint8_t m_Width, m_Height, m_NumFrames, m_BitsPixel;
+    uint8_t m_NumFrames, m_BitsPixel;
+    uint16_t m_Width, m_Height;
     const uint8_t *m_Data, *m_Mask;
     const struct CRGB *m_ColTable;
   public:
