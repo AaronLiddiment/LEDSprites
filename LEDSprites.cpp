@@ -308,7 +308,7 @@ void cSprite::SetPosition(int16_t X, int16_t Y)
 
 void cSprite::SetFrame(uint8_t Frame, uint8_t FrameRate)
 {
-  m_Frame = max(m_NumFrames - 1, Frame);
+  m_Frame = min(m_NumFrames - 1, Frame);
   m_FrameRate = m_CounterFrame = FrameRate;
 }
 
